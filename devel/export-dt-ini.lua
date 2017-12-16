@@ -114,8 +114,8 @@ address('itemdef_pant_vector',globals,'world','raws','itemdefs','pants')
 address('itemdef_food_vector',globals,'world','raws','itemdefs','food')
 address('language_vector',globals,'world','raws','language','words')
 address('translation_vector',globals,'world','raws','language','translations')
-address('colors_vector',globals,'world','raws','language','colors')
-address('shapes_vector',globals,'world','raws','language','shapes')
+address('colors_vector',globals,'world','raws','descriptors','colors')
+address('shapes_vector',globals,'world','raws','descriptors','shapes')
 address('reactions_vector',globals,'world','raws','reactions')
 address('base_materials',globals,'world','raws','mat_table','builtin')
 address('all_syndromes_vector',globals,'world','raws','syndromes','all')
@@ -137,6 +137,8 @@ address('present_simple_verb',df.language_word,'forms','Verb3rdPerson')
 address('past_simple_verb',df.language_word,'forms','VerbPast')
 address('past_participle_verb',df.language_word,'forms','VerbPassive')
 address('present_participle_verb',df.language_word,'forms','VerbGerund')
+address('first_name',df.language_name,'first_name')
+address('nickname',df.language_name,'nickname')
 address('words',df.language_name,'words')
 address('word_type',df.language_name,'parts_of_speech')
 address('language_id',df.language_name,'language')
@@ -289,9 +291,7 @@ address('tissue_name',df.tissue_template,'tissue_name_singular')
 address('tissue_flags',df.tissue_template,'flags')
 
 header('dwarf_offsets')
-address('first_name',df.unit,'name','first_name')
-address('nick_name',df.unit,'name','nickname')
-address('last_name',df.unit,'name','words')
+address('name',df.unit,'name')
 address('custom_profession',df.unit,'custom_profession')
 address('profession',df.unit,'profession')
 address('race',df.unit,'race')
@@ -463,49 +463,42 @@ for i,v in ipairs(lines) do
     out:write(v..'\n')
 end
 
-out:write[[
+-- Flags
+local function write_flags(name,flag_array)
+    out:write('\n')
+    out:write('['..name..']\n')
+    out:write('size='..#flag_array..'\n')
+    for i,flags in pairs(flag_array) do
+        out:write(('%d\\name="%s"\n'):format(i, flags[1]))
+        local value = 0
+        for _,flag in pairs(flags[2]) do
+            value = value | (1 << flag)
+        end
+        out:write(('%d\\value=0x%08x\n'):format(i, value))
+    end
+end
 
-[valid_flags_2]
-size=0
-
-[invalid_flags_1]
-size=9
-1\name=a skeleton
-1\value=0x00002000
-2\name=a merchant
-2\value=0x00000040
-3\name=outpost liason or diplomat
-3\value=0x00000800
-4\name=an invader or hostile
-4\value=0x00020000
-5\name=an invader or hostile
-5\value=0x00080000
-6\name=resident, invader or ambusher
-6\value=0x00600000
-7\name=part of a merchant caravan
-7\value=0x00000080
-8\name="Dead, Jim."
-8\value=0x00000002
-9\name=marauder
-9\value=0x00000010
-
-[invalid_flags_2]
-size=5
-1\name="killed, Jim."
-1\value=0x00000080
-2\name=from the Underworld. SPOOKY!
-2\value=0x00040000
-3\name=resident
-3\value=0x00080000
-4\name=uninvited visitor
-4\value=0x00400000
-5\name=visitor
-5\value=0x00800000
-
-[invalid_flags_3]
-size=1
-1\name=a ghost
-1\value=0x00001000
-]]
+write_flags('valid_flags_2', {})
+write_flags('invalid_flags_1', {
+    { 'a skeleton', { df.unit_flags1.skeleton } },
+    { 'a merchant', { df.unit_flags1.merchant } },
+    { 'outpost liaison or diplomat', { df.unit_flags1.diplomat } },
+    { 'an invader or hostile', { df.unit_flags1.active_invader } },
+    { 'an invader or hostile', { df.unit_flags1.invader_origin } },
+    { 'resident, invader or ambusher', { df.unit_flags1.hidden_ambusher, df.unit_flags1.invades } },
+    { 'part of a merchant caravan', { df.unit_flags1.forest } },
+    { 'Dead, Jim.', { df.unit_flags1.dead } },
+    { 'marauder', { df.unit_flags1.marauder } }
+});
+write_flags ('invalid_flags_2', {
+    { 'killed, Jim.', { df.unit_flags2.killed } },
+    { 'from the Underworld. SPOOKY!', { df.unit_flags2.underworld } },
+    { 'resident', { df.unit_flags2.resident } },
+    { 'uninvited visitor', { df.unit_flags2.visitor_uninvited } },
+    { 'visitor', { df.unit_flags2.visitor } }
+});
+write_flags ('invalid_flags_3', {
+    { 'a ghost', { df.unit_flags3.ghostly } }
+});
 
 out:close()

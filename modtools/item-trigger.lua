@@ -1,6 +1,7 @@
 -- trigger commands based on attacks with certain items
 --author expwnent
 --based on itemsyndrome by Putnam
+--equipment modes and combined trigger conditions added by AtomicChicken
 local usage = [====[
 
 modtools/item-trigger
@@ -24,22 +25,39 @@ Arguments::
             RING
     -onStrike
         trigger the command on appropriate weapon strikes
-    -onEquip
+    -onEquip mode
         trigger the command when someone equips an appropriate item
-    -onUnequip
+        Optionally, the equipment mode can be specified
+        Possible values for mode:
+            Hauled
+            Weapon
+            Worn
+            Piercing
+            Flask
+            WrappedAround
+            StuckIn
+            InMouth
+            Pet
+            SewnInto
+            Strapped
+        multiple values can be specified simultaneously
+        example: -onEquip [ Weapon Worn Hauled ]
+    -onUnequip mode
         trigger the command when someone unequips an appropriate item
+        see above note regarding 'mode' values
     -material mat
         trigger the commmand on items with the given material
         examples
             INORGANIC:IRON
-            CREATURE_MAT:DWARF:BRAIN
-            PLANT_MAT:MUSHROOM_HELMET_PLUMP:DRINK
+            CREATURE:DWARF:BRAIN
+            PLANT:OAK:WOOD
     -contaminant mat
-        trigger the command on items with a given material contaminant
+        trigger the command for items with a given material contaminant
         examples
-            INORGANIC:IRON
-            CREATURE_MAT:DWARF:BRAIN
-            PLANT_MAT:MUSHROOM_HELMET_PLUMP:DRINK
+            INORGANIC:GOLD
+            CREATURE:HUMAN:BLOOD
+            PLANT:MUSHROOM_HELMET_PLUMP:DRINK
+            WATER
     -command [ commandStrs ]
         specify the command to be executed
         commandStrs
@@ -56,23 +74,17 @@ Arguments::
             \\UNIT_ID
             \\anything -> \anything
             anything -> anything
-
 ]====]
 local eventful = require 'plugins.eventful'
 local utils = require 'utils'
 
 itemTriggers = itemTriggers or {}
-materialTriggers = materialTriggers or {}
-contaminantTriggers = contaminantTriggers or {}
-
 eventful.enableEvent(eventful.eventType.UNIT_ATTACK,1) -- this event type is cheap, so checking every tick is fine
-eventful.enableEvent(eventful.eventType.INVENTORY_CHANGE,5) --this is expensive, but you might still want to set it lower
+eventful.enableEvent(eventful.eventType.INVENTORY_CHANGE,5) -- this is expensive, but you might still want to set it lower
 eventful.enableEvent(eventful.eventType.UNLOAD,1)
 
 eventful.onUnload.itemTrigger = function()
  itemTriggers = {}
- materialTriggers = {}
- contaminantTriggers = {}
 end
 
 function processTrigger(command)
@@ -120,47 +132,116 @@ function getitemType(item)
  return itemType
 end
 
+function compareInvModes(reqMode,itemMode)
+ if reqMode == nil then
+  return
+ end
+ if not tonumber(reqMode) and df.unit_inventory_item.T_mode[itemMode] == tostring(reqMode) then
+  return true
+ elseif tonumber(reqMode) == itemMode then
+  return true
+ end
+end
+
+function checkMode(triggerArgs,table)
+ local mode = table.mode
+ for _,argArray in ipairs(triggerArgs) do
+  if argArray[tostring(mode)] then
+   local modeType = table.modeType
+   local reqModeType = argArray[tostring(mode)]
+   if #reqModeType == 1 then
+    if compareInvModes(reqModeType,modeType) or compareInvModes(reqModeType[1],modeType) then
+     utils.fillTable(argArray,table)
+     processTrigger(argArray)
+     utils.unfillTable(argArray,table)
+    end
+   elseif #reqModeType > 1 then
+    for _,r in ipairs(reqModeType) do
+     if compareInvModes(r,modeType) then
+      utils.fillTable(argArray,table)
+      processTrigger(argArray)
+      utils.unfillTable(argArray,table)
+     end
+    end
+   else
+    utils.fillTable(argArray,table)
+    processTrigger(argArray)
+    utils.unfillTable(argArray,table)
+   end
+  end
+ end
+end
+
+function checkForTrigger(table)
+ local itemTypeStr = table.itemType
+ local itemMatStr = table.itemMat:getToken()
+ local contaminantStr
+ if table.contaminantMat then
+  contaminantStr = table.contaminantMat:getToken()
+ end
+ for _,triggerBundle in ipairs(itemTriggers) do
+  local count = 0
+  local trigger = triggerBundle['triggers']
+  local triggerCount = 0
+  for _,t in pairs(trigger) do
+   triggerCount = triggerCount+1
+  end
+  if itemTypeStr and trigger['itemType'] == itemTypeStr then
+   count = count+1
+  end
+  if itemMatStr and trigger['material'] == itemMatStr then
+   count = count+1
+  end
+  if contaminantStr and trigger['contaminant'] == contaminantStr then
+   count = count+1
+  end
+  if count == triggerCount then
+   checkMode(triggerBundle['args'],table)
+  end
+ end
+end
+
+function checkForDuplicates(args)
+ for k,triggerBundle in ipairs(itemTriggers) do
+  local count = 0
+  local trigger = triggerBundle['triggers']
+  if trigger['itemType'] == args.itemType then
+   count = count+1
+  end
+  if trigger['material'] == args.material then
+   count = count+1
+  end
+  if trigger['contaminant'] == args.contaminant then
+   count = count+1
+  end
+  if count == 3 then--counts nil values too
+   return k
+  end
+ end
+end
+
 function handler(table)
  local itemMat = dfhack.matinfo.decode(table.item)
- local itemMatStr = itemMat:getToken()
  local itemType = getitemType(table.item)
  table.itemMat = itemMat
  table.itemType = itemType
 
- for _,command in ipairs(itemTriggers[itemType] or {}) do
-  if command[table.mode] then
-   utils.fillTable(command,table)
-   processTrigger(command)
-   utils.unfillTable(command,table)
+ if table.item.contaminants and #table.item.contaminants > 0 then
+  for _,contaminant in ipairs(table.item.contaminants or {}) do
+   local contaminantMat = dfhack.matinfo.decode(contaminant.mat_type, contaminant.mat_index)
+   table.contaminantMat = contaminantMat
+   checkForTrigger(table)
+   table.contaminantMat = nil
   end
- end
-
- for _,command in ipairs(materialTriggers[itemMatStr] or {}) do
-  if command[table.mode] then
-   utils.fillTable(command,table)
-   processTrigger(command)
-   utils.unfillTable(command,table)
-  end
- end
-
- for _,contaminant in ipairs(table.item.contaminants or {}) do
-  local contaminantMat = dfhack.matinfo.decode(contaminant.mat_type, contaminant.mat_index)
-  local contaminantStr = contaminantMat:getToken()
-  table.contaminantMat = contaminantMat
-  for _,command in ipairs(contaminantTriggers[contaminantStr] or {}) do
-   utils.fillTable(command,table)
-   processTrigger(command)
-   utils.unfillTable(command,table)
-  end
-  table.contaminantMat = nil
+ else
+  checkForTrigger(table)
  end
 end
 
-function equipHandler(unit, item, isEquip)
- local mode = (isEquip and 'onEquip') or (not isEquip and 'onUnequip')
-
+function equipHandler(unit, item, mode, modeType)
  local table = {}
- table.mode = mode
+ table.mode = tostring(mode)
+ table.modeType = tonumber(modeType)
  table.item = df.item.find(item)
  table.unit = df.unit.find(unit)
  if table.item and table.unit then -- they must both be not nil or errors will occur after this point with instant reactions.
@@ -168,13 +249,27 @@ function equipHandler(unit, item, isEquip)
  end
 end
 
-eventful.onInventoryChange.equipmentTrigger = function(unit, item, item_old, item_new)
- if item_old and item_new then
-  return
+function modeHandler(unit, item, modeOld, modeNew)
+ local mode
+ local modeType
+ if modeOld then
+  mode = "onUnequip"
+  modeType = modeOld
+  equipHandler(unit, item, mode, modeType)
  end
+ if modeNew then
+  mode = "onEquip"
+  modeType = modeNew
+  equipHandler(unit, item, mode, modeType)
+ end
+end
 
- local isEquip = item_new and not item_old
- equipHandler(unit,item,isEquip)
+eventful.onInventoryChange.equipmentTrigger = function(unit, item, item_old, item_new)
+ local modeOld = (item_old and item_old.mode)
+ local modeNew = (item_new and item_new.mode)
+ if modeOld ~= modeNew then
+  modeHandler(unit,item,modeOld,modeNew)
+ end
 end
 
 eventful.onUnitAttack.attackTrigger = function(attacker,defender,wound)
@@ -227,8 +322,6 @@ end
 
 if args.clear then
  itemTriggers = {}
- materialTriggers = {}
- contaminantTriggers = {}
 end
 
 if args.checkAttackEvery then
@@ -252,12 +345,11 @@ if not args.command then
  return
 end
 
-if args.itemType then
- if dfhack.items.findType(args.itemType) == -1 then
+if args.itemType and dfhack.items.findType(args.itemType) == -1 then
  local temp
  for _,itemdef in ipairs(df.global.world.raws.itemdefs.all) do
   if itemdef.id == args.itemType then
-   temp = args.itemType --itemdef.subtype
+   temp = args.itemType--itemdef.subtype
    break
   end
  end
@@ -265,30 +357,40 @@ if args.itemType then
   error 'Could not find item type.'
  end
  args.itemType = temp
- end
 end
 
 local numConditions = (args.material and 1 or 0) + (args.itemType and 1 or 0) + (args.contaminant and 1 or 0)
-if numConditions > 1 then
- error 'too many conditions defined: not (yet) supported (pester expwnent if you want it)'
-elseif numConditions == 0 then
- error 'specify a material, weaponType, or contaminant'
+if numConditions == 0 then
+ error 'Specify at least one material, itemType or contaminant.'
 end
 
-if args.material then
- if not materialTriggers[args.material] then
-  materialTriggers[args.material] = {}
- end
- table.insert(materialTriggers[args.material],args)
-elseif args.itemType then
- if not itemTriggers[args.itemType] then
-  itemTriggers[args.itemType] = {}
- end
- table.insert(itemTriggers[args.itemType],args)
-elseif args.contaminant then
- if not contaminantTriggers[args.contaminant] then
-  contaminantTriggers[args.contaminant] = {}
- end
- table.insert(contaminantTriggers[args.contaminant],args)
+local index
+if #itemTriggers > 0 then
+ index = checkForDuplicates(args)
 end
 
+if not index then
+ index = #itemTriggers+1
+ itemTriggers[index] = {}
+ local triggerArray = {}
+ if args.itemType then
+  triggerArray['itemType'] = args.itemType
+ end
+ if args.material then
+  triggerArray['material'] = args.material
+ end
+ if args.contaminant then
+  triggerArray['contaminant'] = args.contaminant
+ end
+ itemTriggers[index]['triggers'] = triggerArray
+end
+
+if not itemTriggers[index]['args'] then
+ itemTriggers[index]['args'] = {}
+end
+local triggerArgs = itemTriggers[index]['args']
+table.insert(triggerArgs,args)
+local argsArray = triggerArgs[#triggerArgs]
+argsArray.itemType = nil
+argsArray.material = nil
+argsArray.contaminant = nil
