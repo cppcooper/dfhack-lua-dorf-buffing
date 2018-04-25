@@ -77,7 +77,7 @@ function GetMatPropertiesStringList (item)
     local deg_C = math.floor((deg_U-10000)*5/9)
     append(list,"Temperature: "..deg_C.."\248C ("..deg_U.."U)")
     if mat.state_color.Solid ~= -1 then
-        append(list,"Color: "..df.global.world.raws.language.colors[mat.state_color.Solid].name)
+        append(list,"Color: "..df.global.world.raws.descriptors.colors[mat.state_color.Solid].name)
     end
     local function GetStrainDescription (number)
         if tonumber(number) < 1 then return "crystalline"
@@ -120,7 +120,10 @@ function GetArmorPropertiesStringList (item)
     append(list,"Armor properties: ")
     append(list,"Thickness: "..item.subtype.props.layer_size,1)
     append(list,"Coverage: "..item.subtype.props.coverage.."%",1)
-    append(list,"Fit for "..df.creature_raw.find(item.maker_race).name[0],1)
+    local craw = df.creature_raw.find(item.maker_race)
+    if craw then
+        append(list,"Fit for "..craw.name[0],1)
+    end
     return list
 end
 
@@ -129,7 +132,10 @@ function GetShieldPropertiesStringList (item)
     local list = {}
     append(list,"Shield properties:")
     append(list,"Base block chance: "..item.subtype.blockchance,1)
-    append(list,"Fit for "..df.creature_raw.find(item.maker_race).name[0],1)
+    local craw = df.creature_raw.find(item.maker_race)
+    if craw then
+        append(list,"Fit for "..craw.name[0],1)
+    end
     return list
 end
 

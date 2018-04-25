@@ -330,7 +330,7 @@ function domesticate(uid, group_id)
     u.flags2.resident = false;
     u.flags3.body_temp_in_range = true;
     u.population_id = -1
-    u.status.current_soul.unit_id = u.id
+    u.status.current_soul.id = u.id
 
     u.animal.population.region_x = -1
     u.animal.population.region_y = -1
@@ -341,9 +341,9 @@ function domesticate(uid, group_id)
     u.counters.soldier_mood_countdown = -1
     u.counters.death_cause = -1
 
-    u.enemy.anon_4 = -1
-    u.enemy.anon_5 = -1
-    u.enemy.anon_6 = -1
+    u.enemy.unk_450 = -1
+    u.enemy.unk_454 = -1
+    u.enemy.army_controller_id = -1
 
     -- And make them tame (from Dirst)
     u.flags1.tame = true
