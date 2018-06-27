@@ -14,7 +14,7 @@ local globals = df.global
 local global_addr = dfhack.internal.getAddress
 local os_type = dfhack.getOSType()
 local rdelta = dfhack.internal.getRebaseDelta()
-local lines = {}
+local lines = {} --as:string[]
 local complete = true
 
 local function header(name)
@@ -229,6 +229,8 @@ address('sub_type',df.itemdef,'subtype')
 address('name',df.itemdef_armorst,'name')
 address('name_plural',df.itemdef_armorst,'name_plural')
 address('adjective',df.itemdef_armorst,'name_preplural')
+address('tool_flags',df.itemdef_toolst,'flags')
+address('tool_adjective',df.itemdef_toolst,'adjective')
 
 header('item_filter_offsets')
 address('item_subtype',df.item_filter_spec,'item_subtype')
@@ -465,6 +467,7 @@ end
 
 -- Flags
 local function write_flags(name,flag_array)
+    local flag_array = flag_array --as:{1:string,2:'number[]'}[]
     out:write('\n')
     out:write('['..name..']\n')
     out:write('size='..#flag_array..'\n')
@@ -482,12 +485,12 @@ write_flags('valid_flags_2', {})
 write_flags('invalid_flags_1', {
     { 'a skeleton', { df.unit_flags1.skeleton } },
     { 'a merchant', { df.unit_flags1.merchant } },
-    { 'outpost liaison or diplomat', { df.unit_flags1.diplomat } },
+    { 'outpost liaison, diplomat, or artifact requesting visitor', { df.unit_flags1.diplomat } },
     { 'an invader or hostile', { df.unit_flags1.active_invader } },
     { 'an invader or hostile', { df.unit_flags1.invader_origin } },
     { 'resident, invader or ambusher', { df.unit_flags1.hidden_ambusher, df.unit_flags1.invades } },
     { 'part of a merchant caravan', { df.unit_flags1.forest } },
-    { 'Dead, Jim.', { df.unit_flags1.dead } },
+    { 'inactive, currently not in play', { df.unit_flags1.inactive } },
     { 'marauder', { df.unit_flags1.marauder } }
 });
 write_flags ('invalid_flags_2', {

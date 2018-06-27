@@ -11,9 +11,15 @@ Display DF version information about the current save
 local function dummy() return nil end
 
 function has_field(tbl, field)
-    return (pcall(function() assert(tbl[field] ~= nil) end))
+    for k in pairs(tbl) do
+        if k == field then
+            return true
+        end
+    end
+    return false
 end
 
+--luacheck: global
 versions = {
 -- skipped v0.21-v0.28
     [1287] = "0.31.01",
@@ -100,9 +106,13 @@ versions = {
     [1612] = "0.44.07",
     [1613] = "0.44.08",
     [1614] = "0.44.09",
+    [1620] = "0.44.10",
+    [1623] = "0.44.11",
 }
 
+--luacheck: global
 min_version = math.huge
+--luacheck: global
 max_version = -math.huge
 
 for k in pairs(versions) do
@@ -136,7 +146,7 @@ end
 
 function describe(version)
     if version == 0 then
-        return 'no world loaded'
+        return 'not saved'
     elseif versions[version] then
         return versions[version] .. (' (%i)'):format(version)
     elseif version < min_version then
@@ -161,4 +171,5 @@ if not moduleMode then
     if not dfhack.isWorldLoaded() then qerror('no world loaded') end
     dump('original DF version', get_original_save_version)
     dump('most recent DF version', get_save_version)
+    dump('running DF version', function() return df.global.version end)
 end
